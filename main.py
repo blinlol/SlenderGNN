@@ -57,6 +57,7 @@ def g(matr):
 
 
 dataset = Planetoid(root="./Cora", name="Cora")
+dataset.shuffle()
 data = dataset[0]
 
 # edge_index = torch.tensor([[0, 1, 1, 2],
@@ -70,29 +71,39 @@ num_nodes = data.num_nodes
 num_edges = data.num_edges
 edge_index = data.edge_index
 
-# adj = coo_to_adj(edge_index, num_nodes)
-# adj_sl = add_selfloops(adj)
-# u, _, _ = svd(adj)
-# u = torch.tensor(u, dtype=torch.float)
-# d = row_sum_diag(adj)
-# d_sl = add_selfloops(d)
-# adj_row = inv(d) @ adj
+adj = coo_to_adj(edge_index, num_nodes)
+adj_sl = add_selfloops(adj)
+u, _, _ = svd(adj)
+u = torch.tensor(u, dtype=torch.float)
+d = row_sum_diag(adj)
+d_sl = add_selfloops(d)
+adj_row = inv(d) @ adj
 
-# d_sl_sqrt = sqrt_diag(d_sl)
-# adj_sl_sym = inv(d_sl_sqrt) @ adj_sl @ inv(d_sl_sqrt)
+d_sl_sqrt = sqrt_diag(d_sl)
+adj_sl_sym = inv(d_sl_sqrt) @ adj_sl @ inv(d_sl_sqrt)
 
-# propagator = torch.cat( ( u, 
-#                           g(x), 
-#                           g(adj_row @ adj_row @ x), 
-#                           g( adj_sl_sym @ adj_sl_sym @ x ) 
-#                         ), 
-#                         dim=1 )
+propagator = torch.cat( ( u, 
+                          g(x), 
+                          g(adj_row @ adj_row @ x), 
+                          g( adj_sl_sym @ adj_sl_sym @ x ) 
+                        ), 
+                        dim=1 )
 
-# model = LogisticRegression().fit(propagator, y)
+# train data 2.5%
+train_size = propagator.size(0) * 25 // 1000
+train_data = propagator[:train_size]
+train_y = y[:train_size]
+
+# test_data 95% (2.5% for validation)
+test_size = propagator.size(0) * 95 // 100
+test_data = propagator[train_size : train_size + test_size]
+test_y = y[train_size : train_size + test_size]
+
+model = LogisticRegression().fit(train_data, train_y)
+print(model.score(test_data, test_y))
 
 # print(propagator)
 # print(g(x))
-
 # print(d_sl, d_sl_sqrt, sep='\n')
 # print(u)
 # print(adj, adj_sl, sep="\n")
